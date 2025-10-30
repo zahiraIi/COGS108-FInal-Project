@@ -15,246 +15,138 @@ But this is *your* repo. You are free to manage the repo as you see fit, edit th
 At the final project date there is an option to make your final project visible to others.  If you choose this option your repo will become publicly visible. 
 
 Also, you are encouraged to share this project after the course and to add it to your portfolio. If your repo is public you may fork it. If it is private you may follow [these instructions](https://docs.google.com/document/d/1_PP-vlsyWjNegGGsmeDB5B-ltjYW1Db14q9dx3HM9e4/edit?usp=sharing)
+# COGS 108 Final Project
 
-# COGS 108 Final Project  
-**Title:** Evaluating Generalizability and Equity in Heart Disease Risk Prediction
+**Title:** Funding, Sector, and Geography as Drivers of Startup Outcomes (Failure vs. Acquisition)
 
 ## Team
 - Group 141  
-- Members: [Zahir Ali], [Omar Abbasi], [Yasir Risvi], [Mostafa Darwish], [Adam Hamadene]
+- Members: Zahir Ali, Omar Abbasi, Yasir Rizvi, Mostafa Darwish, Adam Hamadene
 
 ---
 
 ## 1. Overview
-We build a machine learning classifier to predict whether an individual is at risk of heart disease using standard clinical features such as age, blood pressure, cholesterol, and stress test results. We then evaluate whether this model generalizes across different patient populations drawn from multiple clinical sites (Cleveland Clinic, Hungary, Switzerland, VA Long Beach). Finally, we contextualize any performance gaps by looking at population-level cardiometabolic health patterns in a national health surveillance dataset.
+We analyze how funding size, industry sector, and geography relate to startup outcomes and timing. Using two public datasets (a curated startup outcomes table and a larger Crunchbase-derived corpus), we:
+- Profile outcomes (acquired/IPO vs. closed vs. still operating)
+- Model the likelihood of success vs. failure
+- Explore time-to-event dynamics (from founding to acquisition/closure)
+- Compare patterns across sectors and locations (e.g., US regions, states, cities)
+
+The goal is to quantify associations, highlight robust signals, and document uncertainties/biases common in startup databases.
 
 ---
 
 ## 2. Research Questions
-**Q1. Predictive performance:**  
-Can we accurately classify individuals as "at risk for heart disease" vs. "not at risk" using clinical features (age, resting blood pressure, cholesterol, etc.)?
-
-**Q2. Generalizability / fairness:**  
-Does a classifier trained on one population (e.g. Cleveland patients) perform equally well on patients from other regions (Hungary, Switzerland, VA Long Beach), or does performance degrade?
-
-**Q3. Cardiometabolic context:**  
-Do group-level differences in cardiometabolic risk factors (blood pressure, obesity, diabetes, smoking, activity) observed in large-scale population health data align with the differences we see in model performance across regions?
+- Q1. Association: How strongly are funding size and intensity (total USD raised, count of rounds) associated with ultimate startup outcomes?
+- Q2. Sector/geo effects: Do sector and geography meaningfully shift success vs. failure rates, after controlling for funding intensity?
+- Q3. Timing: How do funding, sector, and geography shift time-to-event (acquisition vs. closure)?
+- Q4. Robustness: Are the above patterns consistent across two related datasets with different coverage?
 
 ---
 
 ## 3. Background & Prior Work
-Decades of cardiovascular research, including the Framingham Heart Study, have shown that blood pressure, cholesterol, smoking, and diabetes are strong risk factors for coronary heart disease over 5–10 year horizons. Risk calculators built on those cohorts are routinely used in clinical screening.
-
-However, most historical datasets are not demographically balanced. Clinical guidelines and diagnostic heuristics are known to work better for some groups than others (for example, underdiagnosis and undertreatment in women and certain non-majority populations has been documented in cardiology literature). That motivates fairness questions: if we train a "risk model" on one hospital’s patients, does it still work for a totally different population?
-
-This project extends standard heart disease prediction work by explicitly:
-- training a model,
-- then stress-testing it across subpopulations,
-- and then interpreting differences through the lens of real-world cardiometabolic risk distributions in the broader U.S. population.
-
-We do **not** claim causation or genetics. We treat "region" as a proxy for different underlying populations (which could reflect biology, diet, clinical practice, and structural/social factors).
+Prior research and practitioner reports note that early funding magnitude and deal cadence correlate with exit likelihood; sector cycles (e.g., consumer vs. enterprise, web/mobile vs. deep tech) and regional ecosystems (e.g., Bay Area vs. others) also shape access to capital and networks. However, Crunchbase-like datasets are subject to reporting biases, inconsistent taxonomies, and lagged event labels. We therefore emphasize transparent cleaning, standardized taxonomies, and sensitivity analyses (e.g., winsorization/log transforms for heavy-tailed funding).
 
 ---
 
 ## 4. Hypotheses
-**H1 (Predictive Features):**  
-Age, cholesterol level, resting blood pressure, and exercise-induced indicators (e.g., max heart rate achieved during stress testing, exercise-induced angina) will be among the most important predictors of heart disease status.
-
-**H2 (Generalization Gap):**  
-A model trained on one site (e.g. Cleveland Clinic) will perform best on that same site's patients and will show reduced recall (miss more true cases) when tested on other sites (Hungary, Switzerland, VA Long Beach).  
-Interpretation: the same "risk signature" does not fully transfer across populations.
-
-**H3 (Population Health Link):**  
-Differences we observe in performance across regions will align with differences in cardiometabolic profiles (rates of hypertension, high cholesterol, obesity, diabetes, smoking, physical inactivity) seen in national survey data. In other words, groups with distinctly different risk factor distributions may also be harder to classify using a model trained elsewhere.
+- H1 (Funding): Greater funding_total_usd and more funding_rounds are associated with higher odds of success (acquisition/IPO) vs. failure (closure).
+- H2 (Sector): Certain sectors (e.g., enterprise software) exhibit higher success odds than others after adjusting for funding intensity.
+- H3 (Geography): Startups in established ecosystems (e.g., CA/Bay Area) have higher success odds and longer survival times than emerging regions.
+- H4 (Timing): Higher funding correlates with longer time-to-event overall, and faster time-to-acquisition conditional on success.
 
 ---
 
 ## 5. Datasets
 
-### 5.1 Multi-Region Heart Disease Clinical Dataset
-- Source: The classic UCI Heart Disease dataset and its related cohorts (Cleveland Clinic, Hungarian Institute of Cardiology, University Hospital Zurich, and the VA Medical Center in Long Beach).
-- Each row = one patient clinical record.
-- Core features typically include:
-  - `age` (years)
-  - `sex` (0/1 encoding)
-  - `cp` (chest pain type)
-  - `trestbps` (resting blood pressure, mm Hg)
-  - `chol` (serum cholesterol, mg/dL)
-  - `fbs` (fasting blood sugar > 120 mg/dL, yes/no)
-  - `restecg` (resting ECG result)
-  - `thalach` (max heart rate achieved during stress test)
-  - `exang` (exercise-induced angina, yes/no)
-  - `oldpeak` (ST depression induced by exercise)
-  - `slope` (slope of the ST segment)
-  - `ca` (number of major vessels observed by fluoroscopy)
-  - `thal` (type of thalassemia / perfusion result)
-  - `site` (origin: Cleveland, Hungary, Switzerland, LongBeachVA)
-- Target variable:
-  - `heart_disease` (binary: 1 = presence of heart disease, 0 = no disease)
+### 5.1 Dataset #1 — Startup Success Prediction (Kaggle)
+- Scope: ~923 companies; rich labels (status, funding_total_usd, funding_rounds, geographies, dates)
+- Use: Clean “small” table for rapid EDA, schema validation, and cross-checking patterns
+- File (after manual download): `data/00-raw/dataset1.csv`
 
-We will:
-- Train a binary classifier.
-- Compute accuracy, precision, recall, F1, ROC AUC.
-- Measure these metrics separately for each `site`.
+### 5.2 Dataset #2 — Crunchbase Startup Outcomes (Kaggle-derived)
+- Scope: ~66k companies; broader coverage with standardized columns (status, category_list, country_code, region, funding, founded_at, last_funding_at)
+- Use: Main corpus for modeling and timing analysis
+- File (after manual download): `data/00-raw/dataset2.csv`
 
-This dataset supports:
-- Modeling (for Q1).
-- Cross-site fairness / generalization (for Q2).
-
----
-
-### 5.2 Population Cardiometabolic Health Dataset
-We will use a large, de-identified U.S. health surveillance dataset such as BRFSS-derived "Heart Disease Health Indicators" or NHANES-derived cardiometabolic risk data. These datasets typically include:
-- Demographics (age, sex)
-- Behavioral risk factors (smoking, physical activity)
-- Clinical risk factors / diagnoses (high blood pressure, high cholesterol, diabetes, BMI/obesity)
-- Self-reported cardiovascular disease diagnosis OR linked cardiovascular outcomes
-
-We will not train our main model on this dataset. Instead, we will:
-- Summarize prevalence of cardiometabolic risk factors across demographic groups.
-- Visualize differences across subgroups (e.g. % hypertensive, % diabetic).
-- Use these summaries to interpret and discuss why a model trained in one setting may underperform elsewhere.
-
-This dataset supports:
-- Interpretation & fairness narrative (for Q3).
-- Privacy/Ethics section, because it surfaces structural and behavioral differences rather than blaming individuals.
+Manual download links are provided in the notebook to avoid Google Drive “viewer” HTML downloads.
 
 ---
 
 ## 6. Methods / Analysis Plan
 
-### 6.1 Data Cleaning
-- Handle missing values in the clinical dataset (`ca` and `thal` sometimes have `?` / NaN).
-- Encode categorical variables (e.g. `cp`, `thal`) as numeric / one-hot.
-- Confirm binary target: convert multi-class heart disease score into {0 = no disease, 1 = disease}.
-- Remove rows with impossible values (e.g. negative blood pressure).
-
-For the population cardiometabolic dataset:
-- Recode responses into consistent numeric indicators:
-  - `has_hypertension` (0/1)
-  - `obese` (BMI ≥ 30)
-  - `diabetic` (0/1)
-  - `physically_inactive` (0/1)
-- Drop rows with missing critical fields.
-
-We'll document all cleaning decisions in the notebook.
-
----
+### 6.1 Data Cleaning & Standardization
+- Column normalization to snake_case
+- Deduplication (exact and entity-level by `name` where appropriate)
+- Currency parsing for `funding_total_usd` (strip $, commas; numeric coercion)
+- Date parsing: `founded_at`, `acquired_at`, `closed_at`, `last_funding_at`
+- Sector taxonomy: collapse messy `labels`/`category_list` to consistent high-level sectors
+- Geography normalization: `country_code`, state/region, and city harmonization
+- Outlier handling for funding (IQR flags; sensitivity with winsorization / log1p)
 
 ### 6.2 Exploratory Data Analysis (EDA)
-On the clinical dataset:
-- Visualize distributions of key features (histograms of `age`, `chol`, `trestbps`).
-- Plot correlation heatmap among numeric predictors.
-- Boxplots / violin plots: compare `chol`, `trestbps`, `thalach` for heart_disease = 0 vs 1.
-- Bar chart: heart disease prevalence by `site`.
+- Outcome distributions across sector and geography
+- Funding distributions (heavy tails) and relationships with outcome
+- Missingness audit and simple missingness correlation map to detect systematic gaps
 
-On the population dataset:
-- Bar charts of cardiometabolic risk factors across demographic groups.
-- Prevalence tables (e.g., % with high BP by sex or by age group).
+### 6.3 Outcome Modeling
+- Framing: success (acquired/IPO) vs. failure (closed); operating treated as censored/other in descriptive stats
+- Models: interpretable baselines (logistic regression) and tree-based (random forest/GBM) for nonlinearity
+- Features: funding_total_usd (log1p), funding_rounds, sector group, geography, recency (last_funding_at)
+- Evaluation: stratified CV; report AUC, precision/recall, calibration, permutation importance
 
-We will interpret each figure in text.
+### 6.4 Time-to-Event (Exploratory)
+- Derive `event_date` = first of {acquired_at, closed_at}
+- Compute `time_to_event_days = event_date - founded_at`
+- Compare survival summaries by sector/geography and funding strata (Kaplan-Meier style summary; no heavy statistical survival modeling required for course scope)
 
----
-
-### 6.3 Model Training
-- Split the multi-region clinical dataset into train/test.
-- Baseline model: Logistic Regression (interpretable coefficients).
-- Optionally: Random Forest or Gradient Boosted Trees to capture nonlinear relationships.
-
-Outputs we’ll save:
-- ROC curve and AUC.
-- Confusion matrix.
-- Feature importance / regression coefficients.
-
-We will discuss: Which features are most predictive? Are they modifiable (blood pressure, cholesterol, etc.) or not (age, sex)?
+### 6.5 Robustness Across Datasets
+- Re-estimate key associations on both datasets
+- Compare direction/magnitude of coefficients and partial dependence
 
 ---
 
-### 6.4 Cross-Region Generalization / Fairness Analysis
-We will:
-1. Train a model using only data from one site (e.g. Cleveland).
-2. Evaluate that model separately on:
-   - Cleveland (in-sample population)
-   - Hungary
-   - Switzerland
-   - LongBeachVA
-3. Record metrics per site: accuracy, precision, recall (sensitivity), F1.
-
-Why recall matters: in a medical triage tool, missing a true positive can delay care.
-
-We will visualize recall by site as a bar plot.
-
-If performance is uneven, we will interpret this as a potential bias / lack of portability of a single-site model.
-
----
-
-### 6.5 Linking to Cardiometabolic Context
-We will then summarize high-level cardiometabolic risk differences from the population dataset (e.g. differences in hypertension, obesity, or diabetes prevalence between demographic groups). We will compare those distributions qualitatively to the clinical sites.
-
-Goal: show that what looks like "model bias" might actually be the model encountering a different physiological / lifestyle baseline than it was trained on.
-
-We will be careful to say correlation ≠ causation.
-
----
-
-## 7. Privacy / Ethics Considerations
-- **Bias & fairness:**  
-  If a model under-identifies heart disease risk for a certain site/population, deploying that model clinically could worsen health disparities (missed diagnoses for that group).
-- **Generalization limits:**  
-  A model trained in one hospital may silently encode that hospital’s demographic mix, diet patterns, access to care, and typical presentation. Applying it elsewhere without auditing is risky.
-- **Self-report bias (population dataset):**  
-  Survey-based health data can under- or over-report conditions due to recall, access to a diagnosis, or stigma.
-- **Data sensitivity:**  
-  Clinical heart disease data is de-identified. In real healthcare settings, these same predictors (blood pressure, cholesterol, smoking) are protected health information (PHI). Any deployment must respect HIPAA and avoid secondary misuse (e.g., insurance discrimination).
-- **Framing:**  
-  We avoid framing cardiovascular risk as purely "personal responsibility." Structural factors (food environment, stress, medical access, occupation, air quality) are real drivers. Our interpretation will make this explicit.
+## 7. Privacy / Ethics
+- Label lag and reporting bias: “operating” may be censored; “closed” may be delayed; acquisitions may be underreported in small regions
+- Coverage bias: Crunchbase-style data favors well-networked sectors/regions; document representativeness limits
+- De-identification: Company-level public data, but avoid doxxing-style inferences; focus on aggregate trends
+- Transparency: Publish cleaning rules, taxonomies, and limitations; avoid normative claims about “merit”
+- Reproducibility: Keep code/data lineage clear; note manual download requirement to avoid HTML artifacts
 
 ---
 
 ## 8. Limitations
-- We cannot infer causality, only statistical association.
-- Clinical sites differ in more than just "genetics": they also differ in referral patterns, healthcare systems, and which patients even get tested. That means `site` is a noisy mix of biology, environment, and healthcare access.
-- The UCI-style clinical dataset is relatively small compared to modern hospital-scale EHRs.
-- The population dataset is survey-based and may not map 1:1 to those exact hospital cohorts.
-
-We will clearly acknowledge these in the Conclusion & Discussion.
+- Non-causal observational data; omitted-variable bias (e.g., team quality, product-market fit)
+- Taxonomy noise in sectors; entity resolution challenges (duplicate or ambiguous names)
+- Geographic heterogeneity conflates ecosystem maturity with regulation/cost structures
+- Time granularity and label lag can distort survival summaries
 
 ---
 
-## 9. Deliverables / Outputs We Will Produce
-1. **Notebook** (`FinalProject_groupXXX-Fa25.ipynb`):
-   - Data cleaning steps (with rationale)
-   - EDA visualizations (≥3, labeled axes)
-   - Model training and evaluation
-   - Cross-site fairness analysis
-   - Cardiometabolic context plots
-   - Ethics discussion
-   - Final conclusion
-
-2. **Short Video (3–5 min)**:
-   - Research questions
-   - Key plots:
-     - ROC curve for the classifier
-     - Recall-by-site fairness bar chart
-     - Cardiometabolic prevalence comparison
-   - Main takeaway for a non-technical audience:
-     - "A single heart disease model doesn't fit everyone equally, and that's a health equity issue."
-
-3. **README (this file)**:
-   - High-level framing, methods, ethical considerations.
+## 9. Deliverables
+1) Jupyter notebooks with:
+   - Cleaning, EDA, modeling, time-to-event summaries, ethics/privacy discussion, and conclusions  
+2) Processed datasets in `data/02-processed/` suitable for analysis  
+3) Short video walkthrough (3–5 min): research questions, key plots, main takeaways  
+4) This README summarizing scope, methods, limitations, and repo layout
 
 ---
 
-## 10. Repository Structure (planned)
+## 10. Repository Structure
 ```text
 /
 ├─ data/
-│  ├─ heart_disease_multisite.csv        # Cleveland / Hungary / etc.
-│  ├─ population_cardio_dataset.csv      # BRFSS- or NHANES-style cardiometabolic data
-│  └─ data_dictionary.md
-├─ FinalProject_groupXXX-Fa25.ipynb      # Main analysis notebook
-├─ README.md                             # This file
-└─ figures/
-   ├─ roc_curve.png
-   ├─ recall_by_site.png
-   └─ risk_factor_prevalence.png
+│  ├─ 00-raw/
+│  │  ├─ dataset1.csv                     # Startup Success Prediction (manual download)
+│  │  └─ dataset2.csv                     # Crunchbase-derived corpus (manual download)
+│  ├─ 01-interim/
+│  └─ 02-processed/
+├─ modules/
+│  └─ get_data.py                         # utility (not used for Drive links in notebook)
+├─ 00-ProjectProposal.ipynb               # Proposal + data loading/processing
+├─ 01-DataCheckpoint.ipynb                # Data checkpoint
+├─ 02-EDACheckpoint.ipynb                 # EDA checkpoint
+├─ 03-FinalProject.ipynb                  # Final analysis
+├─ results/
+└─ README.md
+```
