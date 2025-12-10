@@ -1,0 +1,123 @@
+---
+title: "Correlation Heatmap Visual"
+output: html_document
+date: "2025-9-12"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Correlation Heatmap
+
+```{r heatmap, echo=TRUE, message=FALSE, warning=FALSE}
+library(dplyr)
+library(stringr)
+library(plotly)
+library(readr)
+
+df <- startup_data%>%
+  left_join(failures_all, by = c("name" = "Name")) %>%
+  mutate(
+    failure_amount = as.numeric(gsub("[^0-9.]", "", How.Much.They.Raised)),
+    
+    total_amount_raised = coalesce(funding_total_usd, failure_amount)
+  )
+
+df <- df %>%
+  mutate(
+    years_of_operation = parse_number(Years.of.Operation)
+  )
+
+funding_vars <- c(
+  "has_roundA",
+  "has_roundB",
+  "has_roundC",
+  "has_roundD",
+  "has_angel",
+  "has_VC",
+  "total_amount_raised"
+)
+
+outcome_vars <- c(
+  "status_binary",
+  "relationships",
+  "milestones",
+  "age_last_funding_year",
+  "age_last_milestone_year",
+  "years_of_operation"
+)
+
+funding_vars <- funding_vars[funding_vars %in% names(df)]
+outcome_vars <- outcome_vars[outcome_vars %in% names(df)]
+
+corr_mat <- cor(
+  df[, funding_vars],
+  df[, outcome_vars],
+  use = "pairwise.complete.obs"
+)
+
+clean_names <- list(
+  has_roundA = "Series A",
+  has_roundB = "Series B",
+  has_roundC = "Series C",
+  has_roundD = "series D",
+  has_angel = "Has Angel",
+  has_VC = "Has VC",
+  
+  status_binary = "Status",
+  relationships = "# Relationships",
+  milestones = "# Milestones",
+  age_last_funding_year = "Age at Last Funding",
+  age_last_milestone_year = "Age at Last Milestone",
+  years_of_operation = "Years of Operation",
+  total_amount_raised = "Total Raised (USD)"
+)
+
+hover_text <- round(corr_mat, 2)
+
+x_labels <- unlist(clean_names[colnames(corr_mat)])
+y_labels <- unlist(clean_names[rownames(corr_mat)])
+
+
+plot_ly(
+  x = x_labels,
+  y = y_labels,
+  z = corr_mat,
+  type = "heatmap",
+  colorscale = list(
+    list(0, "blue"),
+    list(0.5, "white"),
+    list(1, "red")
+  ),
+  zmin = -1,
+  zmax = 1,
+  text = hover_text,
+  hovertemplate = paste(
+    "Funding: %{y}<br>",
+    "Outcome: %{y}<br>",
+    "Correlation: %{text}<extra></extra>"
+    
+  )
+) %>%
+  layout(
+    title = list(
+      text = "<b>Correlation between Funding, Outcomes, and Failure Metrics</b>",
+      x = 0.5,
+      font = list(size = 22)
+    ),
+    xaxis = list(
+      title = "<b>Outcomes/Operational/Failure Metrics</b>",
+      tickangle = 45,
+      tickfont = list(size = 14)
+    ),
+    yaxis = list(
+      title = "<b>Funding Variables</b>",
+      tickfont = list(size = 14)
+    ),
+    margin = list(t = 120, l = 140, b = 140)
+  )
+
+rownames(corr_mat)
+colnames(corr_mat)
+```

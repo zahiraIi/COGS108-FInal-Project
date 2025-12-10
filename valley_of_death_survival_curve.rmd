@@ -66,7 +66,7 @@ theme_dark_dashboard <- function() {
 cat("Loading data...\n")
 
 # UPDATE THIS PATH to your local file
-df <- read_csv("/Users/zahir/Downloads/failures_all.csv", show_col_types = FALSE)
+df <- read_csv("data/02-processed/dataset_3_cleaned.csv", show_col_types = FALSE)
 
 # Extract years
 df <- df %>%

@@ -1,0 +1,51 @@
+---
+title: "Geographic"
+output: html_document
+---
+
+library(ggplot2)
+library(dplyr)
+
+state_long <- state_stats %>%
+  select(state_code, acquired, closed) %>%
+  tidyr::pivot_longer(cols = c(acquired, closed), 
+                     names_to = "outcome", 
+                     values_to = "count")
+
+p2 <- ggplot(state_long, aes(x = reorder(state_code, -count), y = count, fill = outcome)) +
+  geom_col(width = 0.7) +
+  geom_text(data = state_stats, 
+            aes(x = state_code, y = total, label = paste0(round(success_rate), "%"), fill = NULL),
+            vjust = -0.5, size = 4.5, fontface = "bold", color = "gray20") +
+  
+  # Colors
+  scale_fill_manual(
+    values = c("acquired" = "#2ecc71", "closed" = "#e74c3c"),
+    labels = c("Acquired", "Closed"),
+    name = "Outcome"
+  ) +
+  
+  # Labels
+  labs(
+    title = "Top 10 States: Startup Outcomes",
+    subtitle = "Green = Acquired | Red = Closed | Percentages show acquisition rate",
+    x = "State",
+    y = "Number of Startups",
+    caption = "States ranked by total number of startups"
+  ) +
+  
+  # Theme
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(size = 18, face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(size = 12, hjust = 0.5, color = "gray40"),
+    legend.position = "top",
+    legend.title = element_text(face = "bold", size = 12),
+    axis.title = element_text(face = "bold"),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_blank(),
+    plot.background = element_rect(fill = "white", color = NA)
+  )
+
+print(p2)
+ggsave("top_states_stacked.png", p2, width = 12, height = 8, dpi = 300, bg = "white")
