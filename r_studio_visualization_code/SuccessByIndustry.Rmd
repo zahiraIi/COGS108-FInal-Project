@@ -1,0 +1,144 @@
+---
+title: "Success Trajectories by Industry"
+output: html_document
+date: "2025-12-10"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+## Success Trajectories by Industry
+
+This visualization shows how different industry sectors perform across funding levels.
+
+**Required file:**
+- `data/02-processed/startup_data.csv`
+
+```{r load-packages}
+library(tidyverse)
+library(scales)
+```
+
+```{r load-data}
+# Load the dataset
+startup_data <- read_csv("data/02-processed/startup_data.csv", show_col_types = FALSE)
+
+cat("Dataset loaded:", nrow(startup_data), "rows\n")
+```
+
+```{r prepare-industry-data}
+industry_success <- startup_data %>%
+    filter(!is.na(funding_total_usd), funding_total_usd > 0,
+           !is.na(category_code), category_code != "",
+           !is.na(status), status != "") %>%
+    mutate(
+        category_code = str_trim(as.character(category_code)) %>% 
+            str_replace_all("_", " ") %>% 
+            str_to_title(),
+        status = str_trim(tolower(as.character(status))),
+        funding_total_usd = as.numeric(funding_total_usd),
+        funding_level = case_when(
+            funding_total_usd < 1e6 ~ "Lean\n<$1M",
+            funding_total_usd < 5e6 ~ "Modest\n$1-5M",
+            funding_total_usd < 15e6 ~ "Well-Funded\n$5-15M",
+            funding_total_usd < 50e6 ~ "Heavily-Funded\n$15-50M",
+            TRUE ~ "Mega-Funded\n>$50M"
+        ),
+        funding_level = factor(funding_level, levels = c(
+            "Lean\n<$1M", "Modest\n$1-5M", "Well-Funded\n$5-15M", 
+            "Heavily-Funded\n$15-50M", "Mega-Funded\n>$50M"
+        ))
+    )
+```
+
+```{r prepare-industry-visualization}
+top_cats <- industry_success %>%
+    count(category_code, sort = TRUE) %>%
+    head(5) %>%
+    pull(category_code)
+
+industry_funding_success <- industry_success %>%
+    filter(category_code %in% top_cats) %>%
+    group_by(funding_level, category_code) %>%
+    summarise(
+        total = n(),
+        acquired = sum(status == "acquired"),
+        .groups = "drop"
+    ) %>%
+    filter(total >= 5) %>%
+    mutate(acquisition_rate = acquired / total)
+
+industry_funding_success <- industry_funding_success %>%
+    mutate(
+        category_display = case_when(
+            str_detect(category_code, "Software") ~ "Software & Web",
+            str_detect(category_code, "Web") ~ "Software & Web",
+            str_detect(category_code, "Enterprise") ~ "Enterprise & Hardware",
+            str_detect(category_code, "Hardware") ~ "Enterprise & Hardware",
+            str_detect(category_code, "Biotech") ~ "Life Sciences",
+            str_detect(category_code, "Games") ~ "Consumer & Media",
+            str_detect(category_code, "Media") ~ "Consumer & Media",
+            TRUE ~ "Other"
+        )
+    ) %>%
+    group_by(funding_level, category_display) %>%
+    summarise(
+        acquired = sum(acquired),
+        total = sum(total),
+        .groups = "drop"
+    ) %>%
+    mutate(acquisition_rate = acquired / total)
+```
+
+```{r create-industry-plot}
+p1 <- ggplot(industry_funding_success, 
+             aes(x = funding_level, y = acquisition_rate, 
+                 color = category_display, group = category_display,
+                 size = total)) +
+    geom_line(size = 2) +
+    geom_point(alpha = 0.8) +
+    scale_y_continuous(labels = percent_format(), limits = c(0, 1)) +
+    scale_size_continuous(range = c(3, 15), name = "# Companies") +
+    scale_color_manual(
+        values = c(
+            "Consumer & Media" = "#F4B942",
+            "Enterprise & Hardware" = "#2DD4BF", 
+            "Life Sciences" = "#22D3EE",
+            "Other" = "#A78BFA",
+            "Software & Web" = "#FB7185"
+        ),
+        name = "Industry"
+    ) +
+    labs(
+        title = "SUCCESS TRAJECTORIES BY INDUSTRY",
+        subtitle = "How different sectors perform across funding levels",
+        x = "Funding Level",
+        y = "Acquisition Rate"
+    ) +
+    theme_dark(base_size = 14) +
+    theme(
+        plot.background = element_rect(fill = "#1a1a1a", color = NA),
+        panel.background = element_rect(fill = "#1a1a1a", color = NA),
+        panel.grid.major = element_line(color = "#333333"),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(color = "white", size = 20, face = "bold", hjust = 0.5),
+        plot.subtitle = element_text(color = "gray70", size = 12, hjust = 0.5),
+        axis.text = element_text(color = "white"),
+        axis.title = element_text(color = "white", face = "bold"),
+        legend.background = element_rect(fill = "#2a2a2a", color = "gray50"),
+        legend.text = element_text(color = "white"),
+        legend.title = element_text(color = "white", face = "bold"),
+        legend.key = element_rect(fill = "#2a2a2a")
+    )
+
+print(p1)
+```
+
+```{r save-industry-plot}
+ggsave("success_trajectories_industry.png", p1, 
+       width = 12, height = 8, dpi = 300, bg = "#1a1a1a")
+
+cat("\n✓ Industry trajectories visualization saved!\n")
+cat("File: success_trajectories_industry.png\n")
+```

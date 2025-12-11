@@ -1,0 +1,146 @@
+---
+title: "Correlation Heatmap Visual"
+output: html_document
+date: "2025-12-10"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Correlation Heatmap
+
+This visualization shows the correlation between funding variables and outcome/operational metrics.
+
+**Required files:**
+- `data/02-processed/startup_data.csv` - Startup funding, status, and metrics data
+- `data/02-processed/dataset3_cleaned.csv` - Startup failure data
+
+```{r heatmap, echo=TRUE, message=FALSE, warning=FALSE}
+library(dplyr)
+library(stringr)
+library(plotly)
+library(readr)
+
+# Load the datasets
+startup_data <- read_csv("data/02-processed/startup_data.csv", show_col_types = FALSE)
+failures_all <- read_csv("data/02-processed/dataset3_cleaned.csv", show_col_types = FALSE)
+
+# Join with failures data
+df <- startup_data %>%
+  left_join(failures_all, by = c("name" = "Name")) %>%
+  mutate(
+    failure_amount = as.numeric(gsub("[^0-9.]", "", How.Much.They.Raised)),
+    total_amount_raised = coalesce(funding_total_usd, failure_amount),
+    years_of_operation = parse_number(as.character(Years.of.Operation)),
+    # Create status_binary (1 = acquired, 0 = closed)
+    status_binary = as.numeric(status == "acquired")
+  )
+
+# Define variables for correlation
+funding_vars <- c(
+  "has_roundA",
+  "has_roundB",
+  "has_roundC",
+  "has_roundD",
+  "has_angel",
+  "has_VC",
+  "total_amount_raised"
+)
+
+outcome_vars <- c(
+  "status_binary",
+  "relationships",
+  "milestones",
+  "age_last_funding_year",
+  "age_last_milestone_year",
+  "years_of_operation"
+)
+
+# Filter to only include variables that exist in the dataframe
+funding_vars <- funding_vars[funding_vars %in% names(df)]
+outcome_vars <- outcome_vars[outcome_vars %in% names(df)]
+
+# Calculate correlation matrix
+corr_mat <- cor(
+  df[, funding_vars],
+  df[, outcome_vars],
+  use = "pairwise.complete.obs"
+)
+
+# Clean names for display
+clean_names <- list(
+  has_roundA = "Series A",
+  has_roundB = "Series B",
+  has_roundC = "Series C",
+  has_roundD = "Series D",
+  has_angel = "Has Angel",
+  has_VC = "Has VC",
+  status_binary = "Status (Acquired)",
+  relationships = "# Relationships",
+  milestones = "# Milestones",
+  age_last_funding_year = "Age at Last Funding",
+  age_last_milestone_year = "Age at Last Milestone",
+  years_of_operation = "Years of Operation",
+  total_amount_raised = "Total Raised (USD)"
+)
+
+hover_text <- round(corr_mat, 2)
+
+x_labels <- unlist(clean_names[colnames(corr_mat)])
+y_labels <- unlist(clean_names[rownames(corr_mat)])
+
+# Create the heatmap
+p <- plot_ly(
+  x = x_labels,
+  y = y_labels,
+  z = corr_mat,
+  type = "heatmap",
+  colorscale = list(
+    list(0, "blue"),
+    list(0.5, "white"),
+    list(1, "red")
+  ),
+  zmin = -1,
+  zmax = 1,
+  text = hover_text,
+  hovertemplate = paste(
+    "Funding: %{y}<br>",
+    "Outcome: %{x}<br>",
+    "Correlation: %{text}<extra></extra>"
+  )
+) %>%
+  layout(
+    title = list(
+      text = "<b>Correlation between Funding, Outcomes, and Failure Metrics</b>",
+      x = 0.5,
+      font = list(size = 22)
+    ),
+    xaxis = list(
+      title = "<b>Outcomes/Operational Metrics</b>",
+      tickangle = 45,
+      tickfont = list(size = 14)
+    ),
+    yaxis = list(
+      title = "<b>Funding Variables</b>",
+      tickfont = list(size = 14)
+    ),
+    margin = list(t = 120, l = 140, b = 140)
+  )
+
+p
+
+# Print correlation matrix summary
+cat("\nCorrelation Matrix Summary:\n")
+cat("Funding variables:", paste(funding_vars, collapse = ", "), "\n")
+cat("Outcome variables:", paste(outcome_vars, collapse = ", "), "\n")
+```
+
+## How to Run This Visualization
+
+1. Open this file in RStudio
+2. Ensure the following files are in your working directory:
+   - `data/02-processed/startup_data.csv`
+   - `data/02-processed/dataset3_cleaned.csv`
+3. Install required packages: `install.packages(c("dplyr", "stringr", "plotly", "readr"))`
+4. Click "Knit" or run all code chunks to generate the visualization

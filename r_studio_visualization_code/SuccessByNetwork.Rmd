@@ -1,0 +1,153 @@
+---
+title: "Success Trajectories by Network Strength"
+output: html_document
+date: "2025-12-10"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+## Success Trajectories by Network Strength
+
+This visualization shows how different industry sectors perform as network strength grows.
+
+**Required file:**
+- `data/02-processed/startup_data.csv`
+
+```{r load-packages}
+library(tidyverse)
+library(scales)
+```
+
+```{r load-data}
+# Load the dataset
+startup_data <- read_csv("data/02-processed/startup_data.csv", show_col_types = FALSE)
+
+cat("Dataset loaded:", nrow(startup_data), "rows\n")
+```
+
+```{r prepare-network-data}
+cat("Preparing network strength data...\n")
+
+network_success <- startup_data %>%
+    filter(!is.na(relationships), 
+           !is.na(status), status != "",
+           !is.na(category_code), category_code != "") %>%
+    mutate(
+        relationships = as.numeric(relationships),
+        status = str_trim(tolower(as.character(status))),
+        category_code = str_trim(as.character(category_code)) %>% 
+            str_replace_all("_", " ") %>% 
+            str_to_title()
+    ) %>%
+    filter(relationships > 0) %>%
+    mutate(
+        network_level = case_when(
+            relationships <= 2 ~ "Isolated\n0-2",
+            relationships <= 5 ~ "Small\n3-5",
+            relationships <= 10 ~ "Medium\n6-10",
+            relationships <= 20 ~ "Strong\n11-20",
+            TRUE ~ "Massive\n20+"
+        ),
+        network_level = factor(network_level, levels = c(
+            "Isolated\n0-2", "Small\n3-5", "Medium\n6-10", 
+            "Strong\n11-20", "Massive\n20+"
+        ))
+    )
+```
+
+```{r prepare-network-visualization}
+top_cats_network <- network_success %>%
+    count(category_code, sort = TRUE) %>%
+    head(5) %>%
+    pull(category_code)
+
+network_industry_success <- network_success %>%
+    filter(category_code %in% top_cats_network) %>%
+    group_by(network_level, category_code) %>%
+    summarise(
+        total = n(),
+        acquired = sum(status == "acquired"),
+        .groups = "drop"
+    ) %>%
+    filter(total >= 5) %>%
+    mutate(acquisition_rate = acquired / total)
+
+network_industry_success <- network_industry_success %>%
+    mutate(
+        category_display = case_when(
+            str_detect(category_code, "Software") ~ "Software & Web",
+            str_detect(category_code, "Web") ~ "Software & Web",
+            str_detect(category_code, "Enterprise") ~ "Enterprise & Hardware",
+            str_detect(category_code, "Hardware") ~ "Enterprise & Hardware",
+            str_detect(category_code, "Biotech") ~ "Life Sciences",
+            str_detect(category_code, "Games") ~ "Consumer & Media",
+            str_detect(category_code, "Media") ~ "Consumer & Media",
+            TRUE ~ "Other"
+        )
+    ) %>%
+    group_by(network_level, category_display) %>%
+    summarise(
+        acquired = sum(acquired),
+        total = sum(total),
+        .groups = "drop"
+    ) %>%
+    mutate(acquisition_rate = acquired / total)
+```
+
+```{r create-network-plot}
+p <- ggplot(network_industry_success, 
+            aes(x = network_level, y = acquisition_rate, 
+                color = category_display, group = category_display,
+                size = total)) +
+    geom_line(size = 2) +
+    geom_point(alpha = 0.8) +
+    
+    scale_y_continuous(labels = percent_format(), limits = c(0, 1)) +
+    scale_size_continuous(range = c(3, 15), name = "# Companies") +
+    scale_color_manual(
+        values = c(
+            "Consumer & Media" = "#F4B942",
+            "Enterprise & Hardware" = "#2DD4BF",
+            "Life Sciences" = "#22D3EE",
+            "Other" = "#A78BFA",
+            "Software & Web" = "#FB7185"
+        ),
+        name = "Industry"
+    ) +
+    
+    labs(
+        title = "SUCCESS TRAJECTORIES BY NETWORK STRENGTH",
+        subtitle = "How different sectors perform as network strength grows",
+        x = "Network Strength (Relationships)",
+        y = "Acquisition Rate"
+    ) +
+    
+    theme_dark(base_size = 14) +
+    theme(
+        plot.background = element_rect(fill = "#1a1a1a", color = NA),
+        panel.background = element_rect(fill = "#1a1a1a", color = NA),
+        panel.grid.major = element_line(color = "#333333"),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(color = "white", size = 20, face = "bold", hjust = 0.5),
+        plot.subtitle = element_text(color = "gray70", size = 12, hjust = 0.5),
+        axis.text = element_text(color = "white", size = 11),
+        axis.title = element_text(color = "white", face = "bold", size = 12),
+        legend.background = element_rect(fill = "#2a2a2a", color = "gray50"),
+        legend.text = element_text(color = "white", size = 10),
+        legend.title = element_text(color = "white", face = "bold", size = 11),
+        legend.key = element_rect(fill = "#2a2a2a"),
+        legend.position = "right"
+    )
+
+print(p)
+```
+
+```{r save-network-plot}
+ggsave("success_trajectories_network.png", p, 
+       width = 12, height = 8, dpi = 300, bg = "#1a1a1a")
+
+cat("\n✓ Network trajectories visualization saved!\n")
+cat("File: success_trajectories_network.png\n")
+```

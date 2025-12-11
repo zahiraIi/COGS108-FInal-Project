@@ -1,0 +1,336 @@
+---
+title: "Valley of Death - Spline Visualization"
+output: html_document
+date: "2025-12-10"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Valley of Death Spline
+
+**Required files:**
+- `startup_data.csv`
+- `dataset3_cleaned.csv`
+
+```{r spline-visualization, echo=TRUE, message=FALSE, warning=FALSE, fig.width=14, fig.height=9}
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(plotly)
+library(readr)
+library(lubridate)
+library(stringr)
+
+startup_data <- read_csv("startup_data.csv", show_col_types = FALSE)
+dataset3 <- read_csv("dataset3_cleaned.csv", show_col_types = FALSE)
+
+df1 <- startup_data %>%
+  mutate(
+    founded_date = mdy(founded_at),
+    closed_date = mdy(closed_at),
+    lifespan_years = case_when(
+      !is.na(closed_date) ~ as.numeric(difftime(closed_date, founded_date, units = "days")) / 365.25,
+      TRUE ~ NA_real_
+    ),
+    source = "startup_data"
+  ) %>%
+  filter(!is.na(lifespan_years), lifespan_years >= 0, lifespan_years <= 20) %>%
+  select(name, lifespan_years, source)
+
+df2 <- dataset3 %>%
+  mutate(
+    lifespan_years = case_when(
+      str_detect(`Years.of.Operation`, "^\\d+ \\(") ~ 
+        as.numeric(str_extract(`Years.of.Operation`, "^\\d+")),
+      TRUE ~ {
+        start <- as.numeric(str_extract(`Years.of.Operation`, "^\\d{4}"))
+        end <- as.numeric(str_extract(`Years.of.Operation`, "\\d{4}$"))
+        end - start
+      }
+    ),
+    source = "dataset3"
+  ) %>%
+  filter(!is.na(lifespan_years), lifespan_years >= 0, lifespan_years <= 20) %>%
+  select(name = Name, lifespan_years, source)
+
+df <- bind_rows(df1, df2)
+total_startups <- nrow(df)
+
+set.seed(42)
+n_bootstrap <- 300
+year_points <- seq(0, 15, by = 0.2)
+
+bootstrap_survival <- map_dfr(1:n_bootstrap, function(i) {
+  sample_df <- df %>% sample_frac(0.4, replace = TRUE)
+  map_dfr(year_points, function(yr) {
+    tibble(
+      bootstrap_id = i,
+      year = yr,
+      survival_rate = mean(sample_df$lifespan_years > yr) * 100
+    )
+  })
+})
+
+survival_summary <- bootstrap_survival %>%
+  group_by(year) %>%
+  summarise(
+    mean_survival = mean(survival_rate),
+    sd_survival = sd(survival_rate),
+    lower_ci = mean_survival - 2.5 * sd_survival,
+    upper_ci = mean_survival + 2.5 * sd_survival,
+    .groups = "drop"
+  ) %>%
+  mutate(
+    lower_ci = pmax(lower_ci, 0),
+    upper_ci = pmin(upper_ci, 100)
+  )
+
+actual_survival <- map_dfr(0:15, function(yr) {
+  tibble(
+    year = yr,
+    survival_rate = mean(df$lifespan_years > yr) * 100
+  )
+})
+
+milestones <- actual_survival %>%
+  filter(year %in% c(1, 3, 5, 7, 10))
+
+total_valley_drop <- actual_survival$survival_rate[actual_survival$year == 3] - 
+                     actual_survival$survival_rate[actual_survival$year == 7]
+
+zones <- list(
+  list(name = "LAUNCH PHASE", x0 = 0, x1 = 3, color = "rgba(200, 230, 200, 0.4)", text_color = "#2d5a2d"),
+  list(name = "VALLEY OF DEATH", x0 = 3, x1 = 7, color = "rgba(230, 200, 200, 0.45)", text_color = "#8b0000"),
+  list(name = "GROWTH PHASE", x0 = 7, x1 = 10, color = "rgba(230, 220, 180, 0.4)", text_color = "#8b7000"),
+  list(name = "MATURITY PHASE", x0 = 10, x1 = 15, color = "rgba(200, 210, 230, 0.4)", text_color = "#1a3a5c")
+)
+
+zone_shapes <- lapply(zones, function(z) {
+  list(
+    type = "rect",
+    x0 = z$x0, x1 = z$x1,
+    y0 = 0, y1 = 108,
+    fillcolor = z$color,
+    line = list(width = 0),
+    layer = "below"
+  )
+})
+
+valley_border <- list(
+  list(
+    type = "line",
+    x0 = 3, x1 = 3,
+    y0 = 0, y1 = 108,
+    line = list(color = "#8b0000", width = 1.5, dash = "dash"),
+    layer = "below"
+  ),
+  list(
+    type = "line",
+    x0 = 7, x1 = 7,
+    y0 = 0, y1 = 108,
+    line = list(color = "#8b0000", width = 1.5, dash = "dash"),
+    layer = "below"
+  )
+)
+
+zone_shapes <- c(zone_shapes, valley_border)
+
+zone_annotations <- list(
+  list(x = 1.5, y = 105, text = "<b>LAUNCH PHASE</b>", showarrow = FALSE,
+       font = list(size = 13, color = "#2d5a2d", family = "Times New Roman")),
+  list(x = 5, y = 105, text = "<b>VALLEY OF DEATH</b>", showarrow = FALSE,
+       font = list(size = 14, color = "#8b0000", family = "Times New Roman")),
+  list(x = 8.5, y = 105, text = "<b>GROWTH PHASE</b>", showarrow = FALSE,
+       font = list(size = 13, color = "#8b7000", family = "Times New Roman")),
+  list(x = 12.5, y = 105, text = "<b>MATURITY PHASE</b>", showarrow = FALSE,
+       font = list(size = 13, color = "#1a3a5c", family = "Times New Roman"))
+)
+
+milestone_annotations <- lapply(1:nrow(milestones), function(i) {
+  list(
+    x = milestones$year[i],
+    y = milestones$survival_rate[i] + 7,
+    text = paste0("<b>", round(milestones$survival_rate[i]), "%</b>"),
+    showarrow = TRUE,
+    arrowhead = 2,
+    arrowsize = 0.8,
+    arrowwidth = 1.5,
+    arrowcolor = "#333333",
+    ax = 0,
+    ay = -22,
+    font = list(size = 12, color = "white", family = "Arial"),
+    bgcolor = "#333333",
+    bordercolor = "#333333",
+    borderwidth = 1,
+    borderpad = 5
+  )
+})
+
+insight_annotations <- list(
+  list(
+    x = 5,
+    y = 70,
+    text = paste0("<b>", round(total_valley_drop), " percentage point decline</b><br>",
+                  "<i>Primary failure period: seed funding</i><br>",
+                  "<i>exhaustion and market validation</i>"),
+    showarrow = TRUE,
+    arrowhead = 2,
+    arrowsize = 0.8,
+    arrowwidth = 1.5,
+    arrowcolor = "#8b0000",
+    ax = 0,
+    ay = 45,
+    font = list(size = 11, color = "#4a0000", family = "Times New Roman"),
+    bgcolor = "rgba(255, 245, 245, 0.95)",
+    bordercolor = "#8b0000",
+    borderwidth = 1,
+    borderpad = 8
+  ),
+  list(
+    x = 12.5,
+    y = 22,
+    text = paste0("<b>Long-term Survival Rate</b><br>",
+                  round(actual_survival$survival_rate[actual_survival$year == 10], 1), 
+                  "% of startups survive to Year 10"),
+    showarrow = FALSE,
+    font = list(size = 11, color = "#1a3a5c", family = "Times New Roman"),
+    bgcolor = "rgba(245, 248, 255, 0.95)",
+    bordercolor = "#1a3a5c",
+    borderwidth = 1,
+    borderpad = 8
+  )
+)
+
+all_annotations <- c(zone_annotations, milestone_annotations, insight_annotations)
+
+p <- plot_ly(height = 700, width = 1200) %>%
+  add_trace(
+    data = survival_summary,
+    x = ~year,
+    y = ~upper_ci,
+    type = "scatter",
+    mode = "lines",
+    line = list(color = "rgba(70, 70, 120, 0.3)", width = 1),
+    showlegend = FALSE,
+    name = "Upper CI",
+    hoverinfo = "skip"
+  ) %>%
+  add_trace(
+    data = survival_summary,
+    x = ~year,
+    y = ~lower_ci,
+    type = "scatter",
+    mode = "lines",
+    fill = "tonexty",
+    fillcolor = "rgba(70, 70, 120, 0.25)",
+    line = list(color = "rgba(70, 70, 120, 0.3)", width = 1),
+    showlegend = FALSE,
+    name = "Lower CI",
+    hoverinfo = "skip"
+  ) %>%
+  add_trace(
+    data = bootstrap_survival %>% filter(year %% 1 == 0),
+    x = ~year,
+    y = ~survival_rate,
+    type = "scatter",
+    mode = "markers",
+    marker = list(
+      color = "rgba(70, 70, 120, 0.2)",
+      size = 5
+    ),
+    showlegend = FALSE,
+    name = "Bootstrap Estimates",
+    hovertemplate = "Year: %{x}<br>Survival: %{y:.1f}%<extra></extra>"
+  ) %>%
+  add_trace(
+    data = survival_summary,
+    x = ~year,
+    y = ~mean_survival,
+    type = "scatter",
+    mode = "lines",
+    line = list(
+      color = "#1a1a2e",
+      width = 2.5,
+      shape = "spline",
+      smoothing = 1.3
+    ),
+    name = "Survival Rate",
+    hovertemplate = "Year: %{x:.1f}<br>Survival Rate: %{y:.1f}%<extra></extra>"
+  ) %>%
+  add_trace(
+    data = milestones,
+    x = ~year,
+    y = ~survival_rate,
+    type = "scatter",
+    mode = "markers",
+    marker = list(
+      color = "#d4a017",
+      size = 14,
+      line = list(color = "#333333", width = 2),
+      symbol = "circle"
+    ),
+    name = "Key Milestones",
+    hovertemplate = "Year %{x}<br>Survival: %{y:.1f}%<extra></extra>"
+  ) %>%
+  layout(
+    title = list(
+      text = paste0(
+        "<b>The Valley of Death: Startup Survival Analysis</b><br>",
+        "<span style='font-size:14px; color:#555;'>Spline model with bootstrapped confidence intervals (n = ", 
+        total_startups, " companies)</span>"
+      ),
+      x = 0.5,
+      y = 0.97,
+      font = list(size = 22, color = "#1a1a2e", family = "Times New Roman")
+    ),
+    xaxis = list(
+      title = list(
+        text = "<b>Years Since Founding</b>",
+        font = list(size = 14, color = "#1a1a2e", family = "Times New Roman"),
+        standoff = 20
+      ),
+      tickfont = list(size = 12, color = "#333333", family = "Times New Roman"),
+      range = c(-0.3, 15.5),
+      dtick = 1,
+      gridcolor = "rgba(180, 180, 180, 0.4)",
+      gridwidth = 1,
+      zeroline = FALSE,
+      showline = TRUE,
+      linewidth = 1.5,
+      linecolor = "#333333"
+    ),
+    yaxis = list(
+      title = list(
+        text = "<b>Survival Rate (%)</b>",
+        font = list(size = 14, color = "#1a1a2e", family = "Times New Roman"),
+        standoff = 15
+      ),
+      tickfont = list(size = 12, color = "#333333", family = "Times New Roman"),
+      range = c(0, 112),
+      dtick = 10,
+      gridcolor = "rgba(180, 180, 180, 0.4)",
+      gridwidth = 1,
+      zeroline = FALSE,
+      showline = TRUE,
+      linewidth = 1.5,
+      linecolor = "#333333"
+    ),
+    shapes = zone_shapes,
+    annotations = all_annotations,
+    plot_bgcolor = "#fafafa",
+    paper_bgcolor = "white",
+    margin = list(t = 100, b = 80, l = 80, r = 50),
+    hovermode = "closest",
+    showlegend = FALSE
+  )
+
+p
+```
+
+## How to Run
+
+1. Place `startup_data.csv` and `dataset3_cleaned.csv` in your working directory
+2. Install packages: `install.packages(c("dplyr", "tidyr", "purrr", "plotly", "readr", "lubridate", "stringr"))`
+3. Click Knit or run all chunks
