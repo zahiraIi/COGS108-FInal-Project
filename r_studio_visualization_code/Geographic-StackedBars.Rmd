@@ -20,12 +20,17 @@ library(ggplot2)
 library(dplyr)
 library(tidyr)
 library(readr)
+library(stringr)
 ```
 
-```{r load-and-prepare-data}
+```{r load-data}
 # Load the dataset
-startup_data <- read_csv("data/02-processed/startup_data.csv", show_col_types = FALSE)
+startup_data <- read_csv("../data/02-processed/startup_data.csv", show_col_types = FALSE)
 
+cat("Dataset loaded:", nrow(startup_data), "rows\n")
+```
+
+```{r prepare-data}
 # Calculate state statistics
 state_stats <- startup_data %>%
   filter(!is.na(state_code), state_code != "", 
@@ -59,6 +64,7 @@ state_long <- state_stats %>%
                names_to = "outcome", 
                values_to = "count")
 
+# Create the stacked bar chart
 p2 <- ggplot(state_long, aes(x = reorder(state_code, -count), y = count, fill = outcome)) +
   geom_col(width = 0.7) +
   geom_text(data = state_stats, 
@@ -95,7 +101,13 @@ p2 <- ggplot(state_long, aes(x = reorder(state_code, -count), y = count, fill = 
   )
 
 print(p2)
+```
+
+```{r save-plot}
 ggsave("top_10_states_startup_outcomes.png", p2, width = 12, height = 8, dpi = 300, bg = "white")
+
+cat("\n✓ Visualization saved!\n")
+cat("File: top_10_states_startup_outcomes.png\n")
 ```
 
 ## How to Run This Visualization
@@ -103,5 +115,5 @@ ggsave("top_10_states_startup_outcomes.png", p2, width = 12, height = 8, dpi = 3
 1. Open this file in RStudio
 2. Ensure the data file is in your working directory:
    - `data/02-processed/startup_data.csv`
-3. Install required packages: `install.packages(c("ggplot2", "dplyr", "tidyr", "readr"))`
+3. Install required packages: `install.packages(c("ggplot2", "dplyr", "tidyr", "readr", "stringr"))`
 4. Click "Knit" or run all code chunks to generate the visualization

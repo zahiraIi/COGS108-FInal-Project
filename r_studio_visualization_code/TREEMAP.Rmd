@@ -23,7 +23,7 @@ library(readr)
 
 ```{r load-data}
 # Load the dataset
-startup_data <- read_csv("data/02-processed/startup_data.csv", show_col_types = FALSE)
+startup_data <- read_csv("../data/02-processed/startup_data.csv", show_col_types = FALSE)
 
 cat("Dataset loaded:", nrow(startup_data), "rows\n")
 ```

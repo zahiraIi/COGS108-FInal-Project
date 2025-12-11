@@ -11,8 +11,8 @@ knitr::opts_chunk$set(echo = TRUE)
 ## Valley of Death Spline
 
 **Required files:**
-- `startup_data.csv`
-- `dataset3_cleaned.csv`
+- `data/02-processed/startup_data.csv`
+- `data/02-processed/dataset3_cleaned.csv`
 
 ```{r spline-visualization, echo=TRUE, message=FALSE, warning=FALSE, fig.width=14, fig.height=9}
 library(dplyr)
@@ -23,8 +23,13 @@ library(readr)
 library(lubridate)
 library(stringr)
 
-startup_data <- read_csv("startup_data.csv", show_col_types = FALSE)
-dataset3 <- read_csv("dataset3_cleaned.csv", show_col_types = FALSE)
+# Load datasets using proper relative paths
+startup_data <- read_csv("../data/02-processed/startup_data.csv", show_col_types = FALSE)
+dataset3 <- read_csv("../data/02-processed/dataset3_cleaned.csv", show_col_types = FALSE)
+
+cat("Datasets loaded successfully!\n")
+cat("startup_data:", nrow(startup_data), "rows\n")
+cat("dataset3:", nrow(dataset3), "rows\n")
 
 df1 <- startup_data %>%
   mutate(
@@ -331,6 +336,9 @@ p
 
 ## How to Run
 
-1. Place `startup_data.csv` and `dataset3_cleaned.csv` in your working directory
-2. Install packages: `install.packages(c("dplyr", "tidyr", "purrr", "plotly", "readr", "lubridate", "stringr"))`
-3. Click Knit or run all chunks
+1. Open this file in RStudio from the `r_studio_visualization_code/` directory
+2. Ensure data files are in place:
+   - `data/02-processed/startup_data.csv`
+   - `data/02-processed/dataset3_cleaned.csv`
+3. Install packages: `install.packages(c("dplyr", "tidyr", "purrr", "plotly", "readr", "lubridate", "stringr"))`
+4. Click Knit or run all chunks
