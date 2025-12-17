@@ -97,22 +97,40 @@ Manual download links are provided in the notebooks to avoid Google Drive "viewe
 - Funding distributions (heavy tails) and relationships with outcome
 - Missingness audit and simple missingness correlation map to detect systematic gaps
 - Visualizations created in RStudio (see `r_studio_visualization_code/` directory)
-- Key visualizations include:
-  - Success trajectories by industry and network strength
-  - Geographic distribution of startups across America
-  - Top 10 states by startup outcomes
-  - Total funding by category (treemap)
-  - Valley of death survival analysis
-  - Correlation heatmap between funding, outcomes, and failure metrics
-  - Funding vs. years operated scatter plot
-- See `02-EDACheckpoint.ipynb` and `03-FinalProject.ipynb` for analysis details
+
+**Key Visualizations:**
+
+- **Correlation Analysis**: Correlation heatmap between funding, outcomes, and failure metrics reveals relationships between VC backing, funding rounds, and startup outcomes.
+
+  ![Correlation Between Funding Outcomes and Failure Metrics](images/correlation_between_funding_outcomes_and_failure_metrics.png)
+
+- **Funding vs. Years Operated**: Scatter plot showing the relationship between funding amount and years of operation, revealing sector-specific patterns.
+
+  ![Funding vs Years Operated](images/funding_vs_years_operated.png)
+
+- See `02-EDACheckpoint.ipynb` and `03-FinalProject.ipynb` for complete analysis details
 
 ### 6.3 Key Findings
 Based on the analysis in `03-FinalProject.ipynb`:
+
 - **Funding Impact**: Funding size has the strongest positive correlation with success (acquisition vs. closure). Higher funding levels consistently associated with higher acquisition rates across all industry sectors.
+
+  ![Success Trajectories by Industry](images/success_trajectories_by_industry.png)
+
 - **Network Strength**: Even stronger positive correlation than funding alone. Startups with denser connections to notable individuals (board members, VC partners, executives) show sharply higher acquisition rates.
+
+  ![Success Trajectories by Network Strength](images/success_trajectories_by_network_strength.png)
+
 - **Industry Sector**: Software, web, and mobile sectors dominate both in total funding and success rates. These technology-based sectors received the most investment capital and showed the highest average success rates.
+
+  ![Total Funding by Category](images/total_funding_by_category.png)
+
 - **Geographic Location**: California dominates the startup landscape with 4x more startups than the next highest state (New York). California's ecosystem (VC firms, accelerators like Y Combinator, Silicon Valley Bank) creates optimal conditions for network building and funding access.
+
+  ![Startup Density Across America](images/startup_density_across_america.png)
+  
+  ![Top 10 States Startup Outcomes](images/top_10_states_startup_outcomes.png)
+
 - **Valley of Death**: Survival probability drops significantly between years 3-7 (from 92% to 42%), with year 5 being the deadliest inflection point. 77% of failures cited "Competition" as primary cause, regardless of funding levels.
 
 ### 6.4 Time-to-Event Analysis
@@ -120,6 +138,8 @@ Based on the analysis in `03-FinalProject.ipynb`:
 - Analysis reveals distinct "Valley of Death" survival curve
 - Survival summaries compared by sector/geography and funding strata
 - See `r_studio_visualization_code/valley_of_death_spline.rmd` for implementation
+
+![The Valley of Death](images/the_valley_of_death.png)
 
 ---
 
